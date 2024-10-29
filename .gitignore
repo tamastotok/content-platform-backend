@@ -1,0 +1,77 @@
+# Python
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.db
+*.sqlite3
+*.log
+
+# Django
+*.log
+*.pot
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+*.db
+*.egg-info/
+local_settings.py
+db.sqlite3
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv/
+.env/
+
+# Media files
+media/
+
+# Static files
+staticfiles/
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+
+# Pytest
+.cache
+*.cover
+*.py,cover
+*.egg
+dist/
+build/
+*.egg-info/
+
+# Coverage reports
+htmlcov/
+.coverage
+
+# MyPy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Docker
+*.dockerignore
+Dockerfile
+docker-compose.yml
+
+# Environment variable files
+.env
+*.env
+
+# Local settings
+local_settings.py
+
+# MacOS
+.DS_Store
+
+# Windows
+Thumbs.db
