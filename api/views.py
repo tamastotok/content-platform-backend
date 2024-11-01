@@ -1,6 +1,8 @@
 from django.contrib.auth.models import User
 from rest_framework import generics, status
 from rest_framework.response import Response
+from django.shortcuts import get_object_or_404
+from django.contrib.contenttypes.models import ContentType
 from rest_framework.permissions import (
     IsAuthenticated,
     AllowAny,
@@ -97,6 +99,19 @@ class UserPostsAndCommentsView(generics.GenericAPIView):
         )
 
 
+### Clear database:
+class DeleteAllPosts(APIView):
+    def delete(self, request):
+        # Delete all posts
+        deleted_count, _ = Post.objects.all().delete()
+
+        # Return a response indicating how many posts were deleted
+        return Response(
+            {"message": f"{deleted_count} posts deleted."},
+            status=status.HTTP_204_NO_CONTENT,
+        )
+
+
 ### New Codes:
 class UserActivityView(APIView):
     permission_classes = [IsAuthenticated]
@@ -148,30 +163,58 @@ class RefreshPost(generics.RetrieveAPIView):
 
 
 class PostVoteView(generics.GenericAPIView):
-    serializer_class = PostVoteSerializer
-    permission_classes = [IsAuthenticated]
-
     def post(self, request, post_id):
-        try:
-            post = Post.objects.get(id=post_id)
-        except Post.DoesNotExist:
+        """
+        This endpoint allows users to upvote or downvote a post.
+        `vote_type` in the request data should be 1 for upvote and -1 for downvote.
+        """
+        vote_type = request.data.get('vote_type')
+
+        # Ensure vote_type is either 1 (upvote) or -1 (downvote)
+        if vote_type not in [1, -1]:
             return Response(
-                {"error": "Post not found."}, status=status.HTTP_404_NOT_FOUND
+                {"error": "Invalid vote type. Must be 1 (upvote) or -1 (downvote)."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        vote_type = serializer.validated_data.get('vote_type')
+        # Get the post object
+        post = get_object_or_404(Post, id=post_id)
 
-        # Call the toggle_vote method to handle the vote logic
-        post.toggle_vote(request.user, vote_type)
+        # Get the ContentType for the Post model
+        content_type = ContentType.objects.get_for_model(Post)
 
-        # Now, we need to return the updated total votes
-        total_votes = post.total_votes  # Use the property directly
+        # Check if the user already voted on this post
+        vote, created = Vote.objects.get_or_create(
+            user=request.user,
+            content_type=content_type,
+            object_id=post_id,
+            defaults={'value': vote_type},
+        )
 
-        message = "Vote updated."
+        if created:
+            # If this is a new vote, set the vote type
+            vote.value = vote_type
+            vote.save()
+        else:
+            # Toggle the vote if the user clicks the same button again
+            if vote.value == vote_type:
+                # If the user clicks the same button (e.g., upvote again), remove the vote
+                vote.delete()
+            else:
+                # Otherwise, update the vote to the new value
+                vote.value = vote_type
+                vote.save()
+
+        # Update and calculate total votes
+        post_total_votes = post.total_votes
+
         return Response(
-            {"message": message, "total_votes": total_votes},
+            {
+                "message": "Vote toggled successfully.",
+                "upvotes": post.upvotes,
+                "downvotes": post.downvotes,
+                "total_votes": post_total_votes,
+            },
             status=status.HTTP_200_OK,
         )
 

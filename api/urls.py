@@ -19,6 +19,7 @@ from .views import (
     CreatePost,
     PostVoteView,
     CommentVoteView,
+    DeleteAllPosts,
 )
 
 # urlpatterns = [
@@ -59,13 +60,14 @@ urlpatterns = [
         CommentVoteView.as_view(),
         name='vote-on-comment',
     ),
+    path('posts/delete/all/', DeleteAllPosts.as_view(), name='delete-posts'),
     #    path('settings/update/<str:username>/', UpdateUser_as.view, name='user-update'),
     #    path('settings/delete/<str:username>/', DeleteUser_as.view, name='delete-update'),
     #    ### Posts
     path('post/create/', CreatePost.as_view(), name='create-post'),
-    path('posts/', PostListCreate.as_view(), name='post-create'),  # ÁTÍRNI!!!
+    path('posts/', GetPosts.as_view(), name='get-posts'),
+    # path('posts/', PostListCreate.as_view(), name='post-create'),  # ÁTÍRNI!!!
     path('posts/<int:pk>', RefreshPost.as_view(), name='post-refresh'),
-    # path('posts/', GetPosts.as_view(), name='get-posts'),
     #    path('post/edit/<id:pk>/', EditPost.view, name='edit-post'),
     #    path('post/delete/<id:pk>/', DeletePost.view, name='delete-post'),
     #    ### Comments

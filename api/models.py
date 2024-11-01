@@ -1,5 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.contrib.contenttypes.models import ContentType
+from django.contrib.contenttypes.fields import GenericForeignKey
 
 
 class UserProfile(models.Model):
@@ -22,33 +24,23 @@ class Post(models.Model):
 
     @property
     def upvotes(self):
-        return self.vote_set.filter(vote_type=1).count()  # Count of upvotes
+        return Vote.objects.filter(
+            content_type=ContentType.objects.get_for_model(Post),
+            object_id=self.id,
+            value=1,
+        ).count()
 
     @property
     def downvotes(self):
-        return self.vote_set.filter(vote_type=-1).count()  # Count of downvotes
+        return Vote.objects.filter(
+            content_type=ContentType.objects.get_for_model(Post),
+            object_id=self.id,
+            value=-1,
+        ).count()
 
     @property
     def total_votes(self):
-        return self.upvotes - self.downvotes  # Calculate total votes
-
-    def toggle_vote(self, user, vote_type):
-        try:
-            vote = Vote.objects.get(post=self, user=user)
-            if vote.vote_type == vote_type:
-                vote.delete()  # Remove vote
-            else:
-                # If switching votes
-                if vote.vote_type == 1 and vote_type == -1:
-                    vote.delete()  # Remove upvote
-                    Vote.objects.create(
-                        post=self, user=user, vote_type=-1
-                    )  # Add downvote
-                elif vote.vote_type == -1 and vote_type == 1:
-                    vote.delete()  # Remove downvote
-                    Vote.objects.create(post=self, user=user, vote_type=1)  # Add upvote
-        except Vote.DoesNotExist:
-            Vote.objects.create(post=self, user=user, vote_type=vote_type)
+        return self.upvotes - self.downvotes
 
     def __str__(self):
         return self.title
@@ -62,8 +54,16 @@ class Comment(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     @property
+    def upvotes(self):
+        return self.votes.filter(value=1).count()
+
+    @property
+    def downvotes(self):
+        return self.votes.filter(value=-1).count()
+
+    @property
     def total_votes(self):
-        return self.vote_set.aggregate(total=models.Sum('vote_type'))['total'] or 0
+        return self.upvotes - self.downvotes
 
     def __str__(self):
         return f'Comment by {self.author.username} on {self.post.title}'
@@ -75,15 +75,17 @@ class Vote(models.Model):
         (-1, 'Downvote'),
     )
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    post = models.ForeignKey(Post, on_delete=models.CASCADE, null=True, blank=True)
-    vote_type = models.IntegerField(choices=VOTE_CHOICES)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='votes')
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    object_id = models.PositiveIntegerField()
+    content_object = GenericForeignKey('content_type', 'object_id')
+    value = models.IntegerField(choices=VOTE_CHOICES)
 
     class Meta:
-        unique_together = ('user', 'post')
+        unique_together = ('user', 'content_type', 'object_id')
 
     def __str__(self):
-        return f'Vote by {self.user.username} on {self.post.title} - {self.get_vote_type_display()}'
+        return f'Vote by {self.user.username} on {self.content_object} - {self.get_vote_type_display()}'
 
 
 class Follow(models.Model):
