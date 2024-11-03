@@ -1,6 +1,5 @@
 from django.contrib.auth.models import User
 from rest_framework import serializers
-from django.contrib.contenttypes.models import ContentType
 from .models import UserProfile, Post, Comment, Vote, Follow
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.middleware.csrf import get_token
@@ -35,20 +34,21 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 ### Custom code
-class UserProfileSerializer(serializers.ModelSerializer):
+class VoteSerializer(serializers.ModelSerializer):
+    user_id = serializers.IntegerField(source='user.id', read_only=True)
+
     class Meta:
-        model = UserProfile
-        fields = ['id', 'user', 'bio', 'profile_picture']
-        read_only_fields = ['id']
+        model = Vote
+        fields = ['user_id', 'value']  # Only include user_id and vote value
 
 
-###
 class PostSerializer(serializers.ModelSerializer):
     upvotes = serializers.IntegerField(read_only=True)
     downvotes = serializers.IntegerField(read_only=True)
     total_votes = serializers.IntegerField(read_only=True)
     author_username = serializers.CharField(source='author.username', read_only=True)
     comments_count = serializers.IntegerField(source='comments.count', read_only=True)
+    votes = VoteSerializer(many=True, source='votes_set', read_only=True)
 
     class Meta:
         model = Post
@@ -66,6 +66,7 @@ class PostSerializer(serializers.ModelSerializer):
             'downvotes',
             'total_votes',
             'comments_count',
+            'votes',
         ]
         read_only_fields = [
             'created_at',
@@ -106,6 +107,7 @@ class CommentSerializer(serializers.ModelSerializer):
         ]
 
 
+'''
 class PostVoteSerializer(serializers.ModelSerializer):
     vote_type = serializers.ChoiceField(choices=Vote.VOTE_CHOICES)
 
@@ -141,6 +143,8 @@ class CommentVoteSerializer(serializers.ModelSerializer):
                 "Cannot vote on both post and comment at the same time."
             )
         return data
+
+'''
 
 
 ###

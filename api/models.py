@@ -1,7 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
-from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.fields import GenericForeignKey, GenericRelation
 
 
 class UserProfile(models.Model):
@@ -21,6 +21,7 @@ class Post(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     category = models.CharField(max_length=100, blank=True)
     keywords = models.CharField(max_length=200, blank=True)
+    votes = GenericRelation('Vote', related_query_name='votes_set')
 
     @property
     def upvotes(self):

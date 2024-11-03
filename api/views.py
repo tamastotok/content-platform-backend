@@ -8,21 +8,18 @@ from rest_framework.permissions import (
     AllowAny,
     IsAuthenticatedOrReadOnly,
 )
+from django.db.models import Prefetch
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.views import APIView
 from django.middleware.csrf import get_token
 from django.http import JsonResponse
 from .serializers import (
     UserSerializer,
-    UserProfileSerializer,
     PostSerializer,
     CommentSerializer,
-    PostVoteSerializer,
-    CommentVoteSerializer,
-    FollowSerializer,
     CustomTokenSerializer,
 )
-from .models import UserProfile, Post, Comment, Vote, Follow
+from .models import Post, Comment, Vote
 
 
 def csrf_token_view(request):
@@ -40,63 +37,7 @@ class CreateUserView(generics.CreateAPIView):
     permission_classes = [AllowAny]
 
 
-### Custom code
-class UserProfileDetailView(generics.RetrieveUpdateAPIView):
-    queryset = UserProfile.objects.all()
-    serializer_class = UserProfileSerializer
-
-
-class PostListCreate(generics.ListCreateAPIView):
-    queryset = Post.objects.all()
-    serializer_class = PostSerializer
-    permission_classes = [IsAuthenticated]
-
-    def perform_create(self, serializer):
-        serializer.save(author=self.request.user)
-
-
-class PostEditDelete(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Post.objects.all()
-    serializer_class = PostSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        return self.queryset.filter(author=self.request.user)
-
-    def perform_destroy(self, instance):
-        instance.delete()
-
-
-class CommentListView(generics.ListCreateAPIView):
-    queryset = Comment.objects.all()
-    serializer_class = CommentSerializer
-
-
-class CommentDetailView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Comment.objects.all()
-    serializer_class = CommentSerializer
-
-
-class FollowListView(generics.ListCreateAPIView):
-    queryset = Follow.objects.all()
-    serializer_class = FollowSerializer
-
-
-class FollowDetailView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Follow.objects.all()
-    serializer_class = FollowSerializer
-
-
-class UserPostsAndCommentsView(generics.GenericAPIView):
-    def get(self, request, *args, **kwargs):
-        user = request.user
-        posts = Post.objects.filter(author=user)
-        comments = Comment.objects.filter(author=user)
-        post_serializer = PostSerializer(posts, many=True)
-        comment_serializer = CommentSerializer(comments, many=True)
-        return Response(
-            {'posts': post_serializer.data, 'comments': comment_serializer.data}
-        )
+### Custom code ###
 
 
 ### Clear database:
@@ -137,7 +78,11 @@ class UserActivityView(APIView):
 
 class GetPosts(APIView):
     def get(self, request):
-        posts = Post.objects.all()
+        # Prefetch the votes for each post to ensure they load with the query
+        posts = Post.objects.prefetch_related(
+            Prefetch('votes', queryset=Vote.objects.all(), to_attr='votes_set')
+        ).all()
+
         serializer = PostSerializer(posts, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -152,7 +97,9 @@ class CreatePost(generics.ListCreateAPIView):
 
 
 class RefreshPost(generics.RetrieveAPIView):
-    queryset = Post.objects.all()
+    queryset = Post.objects.prefetch_related(
+        Prefetch('votes', queryset=Vote.objects.all(), to_attr='votes_set')
+    ).all()
     serializer_class = PostSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
 
@@ -164,10 +111,6 @@ class RefreshPost(generics.RetrieveAPIView):
 
 class PostVoteView(generics.GenericAPIView):
     def post(self, request, post_id):
-        """
-        This endpoint allows users to upvote or downvote a post.
-        `vote_type` in the request data should be 1 for upvote and -1 for downvote.
-        """
         vote_type = request.data.get('vote_type')
 
         # Ensure vote_type is either 1 (upvote) or -1 (downvote)
@@ -214,36 +157,6 @@ class PostVoteView(generics.GenericAPIView):
                 "upvotes": post.upvotes,
                 "downvotes": post.downvotes,
                 "total_votes": post_total_votes,
-            },
-            status=status.HTTP_200_OK,
-        )
-
-
-class CommentVoteView(generics.GenericAPIView):
-    serializer_class = CommentVoteSerializer
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request, comment_id):
-        try:
-            comment = Comment.objects.get(id=comment_id)
-        except Comment.DoesNotExist:
-            return Response(
-                {"error": "Comment not found."}, status=status.HTTP_404_NOT_FOUND
-            )
-
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        vote_type = serializer.validated_data.get('vote_type')
-
-        vote, created = Vote.objects.update_or_create(
-            comment=comment, user=request.user, defaults={'vote_type': vote_type}
-        )
-
-        message = "Vote updated." if not created else "Vote added."
-        return Response(
-            {
-                "message": message,
-                "total_votes": comment.total_votes,
             },
             status=status.HTTP_200_OK,
         )
