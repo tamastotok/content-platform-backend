@@ -7,6 +7,7 @@ from .views import (
     CreatePost,
     PostVoteView,
     DeleteAllPosts,
+    GetComments,
 )
 
 urlpatterns = [
@@ -23,8 +24,8 @@ urlpatterns = [
     #    ### Posts
     path('post/create/', CreatePost.as_view(), name='create-post'),
     path('posts/', GetPosts.as_view(), name='get-posts'),
-    # path('posts/', PostListCreate.as_view(), name='post-create'),  # ÁTÍRNI!!!
     path('posts/<int:pk>', RefreshPost.as_view(), name='post-refresh'),
+    path('comments/<int:pk>', GetComments.as_view(), name='get-comments'),
     #    path('post/edit/<id:pk>/', EditPost.view, name='edit-post'),
     #    path('post/delete/<id:pk>/', DeletePost.view, name='delete-post'),
     #    ### Comments
