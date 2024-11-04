@@ -179,3 +179,24 @@ class GetComments(generics.RetrieveAPIView):
         post = self.get_object()
         serializer = self.get_serializer(post)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class CreateComment(generics.CreateAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = CommentSerializer
+
+    def perform_create(self, serializer):
+        # Use get_object_or_404 to handle non-existent post errors gracefully
+        post = get_object_or_404(Post, id=self.kwargs['post_id'])
+
+        # Save the comment with the current user as the author and the specified post
+        serializer.save(author=self.request.user, post=post)
+
+    def get_queryset(self):
+        # Return only comments related to the post if you want to filter based on it
+        post_id = self.kwargs.get('post_id')
+        return (
+            Comment.objects.filter(post__id=post_id)
+            if post_id
+            else Comment.objects.all()
+        )

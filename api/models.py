@@ -53,14 +53,23 @@ class Comment(models.Model):
     content = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    votes = GenericRelation('Vote', related_query_name='votes_set')
 
     @property
     def upvotes(self):
-        return self.votes.filter(value=1).count()
+        return Vote.objects.filter(
+            content_type=ContentType.objects.get_for_model(Comment),
+            object_id=self.id,
+            value=1,
+        ).count()
 
     @property
     def downvotes(self):
-        return self.votes.filter(value=-1).count()
+        return Vote.objects.filter(
+            content_type=ContentType.objects.get_for_model(Comment),
+            object_id=self.id,
+            value=-1,
+        ).count()
 
     @property
     def total_votes(self):

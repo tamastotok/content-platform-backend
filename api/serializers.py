@@ -56,7 +56,6 @@ class CommentSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'post',
-            'author',
             'author_username',
             'content',
             'created_at',
@@ -67,6 +66,7 @@ class CommentSerializer(serializers.ModelSerializer):
             'votes',
         ]
         read_only_fields = [
+            'post',
             'created_at',
             'updated_at',
             'upvotes',
