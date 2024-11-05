@@ -21,7 +21,7 @@ class Post(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     category = models.CharField(max_length=100, blank=True)
     keywords = models.CharField(max_length=200, blank=True)
-    votes = GenericRelation('Vote', related_query_name='votes_set')
+    votes = GenericRelation('Vote', related_query_name='post_votes_set')
 
     @property
     def upvotes(self):
@@ -53,7 +53,7 @@ class Comment(models.Model):
     content = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    votes = GenericRelation('Vote', related_query_name='votes_set')
+    votes = GenericRelation('Vote', related_query_name='comment_votes_set')
 
     @property
     def upvotes(self):

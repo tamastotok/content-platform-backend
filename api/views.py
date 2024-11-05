@@ -80,7 +80,7 @@ class GetPosts(APIView):
     def get(self, request):
         # Prefetch the votes for each post to ensure they load with the query
         posts = Post.objects.prefetch_related(
-            Prefetch('votes', queryset=Vote.objects.all(), to_attr='votes_set')
+            Prefetch('votes', queryset=Vote.objects.all(), to_attr='post_votes_set')
         ).all()
 
         serializer = PostSerializer(posts, many=True)
@@ -98,7 +98,7 @@ class CreatePost(generics.ListCreateAPIView):
 
 class RefreshPost(generics.RetrieveAPIView):
     queryset = Post.objects.prefetch_related(
-        Prefetch('votes', queryset=Vote.objects.all(), to_attr='votes_set')
+        Prefetch('votes', queryset=Vote.objects.all(), to_attr='post_votes_set')
     ).all()
     serializer_class = PostSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
@@ -169,9 +169,10 @@ class PostVoteView(generics.GenericAPIView):
 
 
 class GetComments(generics.RetrieveAPIView):
-    queryset = Post.objects.prefetch_related(
-        Prefetch('votes', queryset=Vote.objects.all(), to_attr='votes_set')
-    ).all()
+    # queryset = Post.objects.prefetch_related(
+    #    Prefetch('votes', queryset=Vote.objects.all(), to_attr='post_votes_set')
+    # ).all()
+    queryset = Post.objects.prefetch_related('comments__votes', 'votes').all()
     serializer_class = PostSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
 
@@ -192,11 +193,77 @@ class CreateComment(generics.CreateAPIView):
         # Save the comment with the current user as the author and the specified post
         serializer.save(author=self.request.user, post=post)
 
-    def get_queryset(self):
-        # Return only comments related to the post if you want to filter based on it
-        post_id = self.kwargs.get('post_id')
-        return (
-            Comment.objects.filter(post__id=post_id)
-            if post_id
-            else Comment.objects.all()
+
+class CommentVoteView(generics.GenericAPIView):
+    def post(self, request, post_id, comment_id):
+        vote_type = request.data.get('vote_type')
+
+        # Validate vote_type (1 for upvote, -1 for downvote, None for removal)
+        if vote_type not in [1, -1, None]:
+            return Response(
+                {
+                    "error": "Invalid vote type. Must be 1 (upvote), -1 (downvote), or null for removal."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Get the post object
+        post = get_object_or_404(Post, id=post_id)
+
+        # Get the comment object related to the post
+        comment = get_object_or_404(post.comments.all(), id=comment_id)
+
+        # Get the ContentType for the Comment model
+        content_type = ContentType.objects.get_for_model(Comment)
+
+        # Check if the user already voted on this comment
+        try:
+            vote = Vote.objects.get(
+                user=request.user, content_type=content_type, object_id=comment_id
+            )
+            if vote_type is None:
+                # Delete the vote if vote_type is None (toggle off)
+                vote.delete()
+            else:
+                # Update the vote if the new value is different
+                if vote.value != vote_type:
+                    vote.value = vote_type
+                    vote.save()
+                else:
+                    # If the same vote is submitted again, toggle it off
+                    vote.delete()
+        except Vote.DoesNotExist:
+            # Create a new vote if one doesn’t exist and vote_type is not None
+            if vote_type is not None:
+                Vote.objects.create(
+                    user=request.user,
+                    content_type=content_type,
+                    object_id=comment_id,
+                    value=vote_type,
+                )
+
+        # Calculate total votes for the comment
+        comment_total_votes = comment.total_votes
+
+        return Response(
+            {
+                "message": "Vote toggled successfully.",
+                "upvotes": comment.upvotes,
+                "downvotes": comment.downvotes,
+                "total_votes": comment_total_votes,
+            },
+            status=status.HTTP_200_OK,
         )
+
+
+class RefreshComment(generics.RetrieveAPIView):
+    queryset = Comment.objects.prefetch_related(
+        Prefetch('votes', queryset=Vote.objects.all(), to_attr='post_votes_set')
+    ).all()
+    serializer_class = CommentSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    def get(self, request, *args, **kwargs):
+        comment = self.get_object()
+        serializer = self.get_serializer(comment)
+        return Response(serializer.data, status=status.HTTP_200_OK)

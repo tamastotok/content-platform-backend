@@ -39,17 +39,16 @@ class VoteSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Vote
-        fields = ['user_id', 'value']  # Only include user_id and vote value
+        fields = ['user_id', 'value']
 
 
 class CommentSerializer(serializers.ModelSerializer):
     author_username = serializers.CharField(source='author.username', read_only=True)
+    author_id = serializers.IntegerField(source='author.id', read_only=True)
     upvotes = serializers.IntegerField(read_only=True)
     downvotes = serializers.IntegerField(read_only=True)
     total_votes = serializers.IntegerField(read_only=True)
-    votes = VoteSerializer(
-        many=True, source='votes_set', read_only=True
-    )  # Nested votes
+    votes = VoteSerializer(many=True, read_only=True)
 
     class Meta:
         model = Comment
@@ -57,6 +56,7 @@ class CommentSerializer(serializers.ModelSerializer):
             'id',
             'post',
             'author_username',
+            'author_id',
             'content',
             'created_at',
             'updated_at',
@@ -81,7 +81,7 @@ class PostSerializer(serializers.ModelSerializer):
     total_votes = serializers.IntegerField(read_only=True)
     author_username = serializers.CharField(source='author.username', read_only=True)
     comments_count = serializers.IntegerField(source='comments.count', read_only=True)
-    votes = VoteSerializer(many=True, source='votes_set', read_only=True)
+    votes = VoteSerializer(many=True, read_only=True)
     comments = CommentSerializer(many=True, read_only=True)
 
     class Meta:

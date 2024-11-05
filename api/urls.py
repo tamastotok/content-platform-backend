@@ -9,6 +9,7 @@ from .views import (
     DeleteAllPosts,
     GetComments,
     CreateComment,
+    CommentVoteView,
 )
 
 urlpatterns = [
@@ -29,6 +30,11 @@ urlpatterns = [
     path('comments/<int:pk>/', GetComments.as_view(), name='get-comments'),
     path(
         'comments/<int:post_id>/create/', CreateComment.as_view(), name='create-comment'
+    ),
+    path(
+        'comments/<int:post_id>/<int:comment_id>/vote/',
+        CommentVoteView.as_view(),
+        name='vote-on-comment',
     ),
     #    path('post/edit/<id:pk>/', EditPost.view, name='edit-post'),
     #    path('post/delete/<id:pk>/', DeletePost.view, name='delete-post'),
