@@ -49,6 +49,7 @@ class CommentSerializer(serializers.ModelSerializer):
     downvotes = serializers.IntegerField(read_only=True)
     total_votes = serializers.IntegerField(read_only=True)
     votes = VoteSerializer(many=True, read_only=True)
+    replies = serializers.SerializerMethodField()
 
     class Meta:
         model = Comment
@@ -64,6 +65,8 @@ class CommentSerializer(serializers.ModelSerializer):
             'downvotes',
             'total_votes',
             'votes',
+            'replies',
+            'parent',
         ]
         read_only_fields = [
             'post',
@@ -73,6 +76,11 @@ class CommentSerializer(serializers.ModelSerializer):
             'downvotes',
             'total_votes',
         ]
+
+    def get_replies(self, obj):
+        if obj.replies.exists():
+            return CommentSerializer(obj.replies.all(), many=True).data
+        return []
 
 
 class PostSerializer(serializers.ModelSerializer):

@@ -172,7 +172,11 @@ class GetComments(generics.RetrieveAPIView):
     # queryset = Post.objects.prefetch_related(
     #    Prefetch('votes', queryset=Vote.objects.all(), to_attr='post_votes_set')
     # ).all()
-    queryset = Post.objects.prefetch_related('comments__votes', 'votes').all()
+    queryset = Post.objects.prefetch_related(
+        'votes',
+        'comments__votes',
+        'comments__replies__votes',
+    ).all()
     serializer_class = PostSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
 
@@ -267,3 +271,60 @@ class RefreshComment(generics.RetrieveAPIView):
         comment = self.get_object()
         serializer = self.get_serializer(comment)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class EditComment(generics.UpdateAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = CommentSerializer
+
+    def get_object(self):
+        post_id = self.kwargs.get('post_id')
+        comment_id = self.kwargs.get('comment_id')
+
+        # Ensure the comment belongs to the specified post and get the comment
+        comment = get_object_or_404(Comment, id=comment_id, post__id=post_id)
+
+        # Optional: Check if the request user is the author of the comment
+        if comment.author != self.request.user:
+            self.permission_denied(
+                self.request, message="You do not have permission to edit this comment."
+            )
+
+        return comment
+
+    def update(self, request, *args, **kwargs):
+        # Perform the update with partial update option
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class DeleteComment(generics.DestroyAPIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        # Retrieve the specific comment by post_id and comment_id
+        post_id = self.kwargs.get('post_id')
+        comment_id = self.kwargs.get('comment_id')
+
+        # Ensure the comment belongs to the specified post
+        return get_object_or_404(Comment, id=comment_id, post__id=post_id)
+
+    def delete(self, request, *args, **kwargs):
+        instance = self.get_object()
+        # Check if the user is the comment's author (added for extra safety)
+        if instance.author != request.user:
+            return Response(
+                {"detail": "You do not have permission to delete this comment."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        self.perform_destroy(instance)
+        return Response(
+            {"message": "Comment deleted successfully."},
+            status=status.HTTP_204_NO_CONTENT,
+        )
