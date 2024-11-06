@@ -214,13 +214,18 @@ class CommentVoteView(generics.GenericAPIView):
         # Get the post object
         post = get_object_or_404(Post, id=post_id)
 
-        # Get the comment object related to the post
+        # Try to get the comment (whether parent or reply)
         comment = get_object_or_404(post.comments.all(), id=comment_id)
 
-        # Get the ContentType for the Comment model
-        content_type = ContentType.objects.get_for_model(Comment)
+        # Check if this comment is a reply (if it has a parent)
+        if comment.parent is not None:
+            # This is a reply to another comment
+            content_type = ContentType.objects.get_for_model(Comment)
+        else:
+            # This is a parent comment
+            content_type = ContentType.objects.get_for_model(Comment)
 
-        # Check if the user already voted on this comment
+        # Check if the user already voted on this comment or reply
         try:
             vote = Vote.objects.get(
                 user=request.user, content_type=content_type, object_id=comment_id
@@ -246,7 +251,7 @@ class CommentVoteView(generics.GenericAPIView):
                     value=vote_type,
                 )
 
-        # Calculate total votes for the comment
+        # Recalculate total votes for the comment or reply (same logic applies for both)
         comment_total_votes = comment.total_votes
 
         return Response(
@@ -328,3 +333,15 @@ class DeleteComment(generics.DestroyAPIView):
             {"message": "Comment deleted successfully."},
             status=status.HTTP_204_NO_CONTENT,
         )
+
+
+class ReplyToComment(generics.CreateAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = CommentSerializer  # Assuming replies use the same serializer
+
+    def perform_create(self, serializer):
+        post = get_object_or_404(Post, id=self.kwargs['post_id'])
+        parent_comment = get_object_or_404(
+            Comment, id=self.kwargs['comment_id'], post=post
+        )
+        serializer.save(author=self.request.user, post=post, parent=parent_comment)

@@ -12,6 +12,7 @@ from .views import (
     CommentVoteView,
     EditComment,
     DeleteComment,
+    ReplyToComment,
 )
 
 urlpatterns = [
@@ -47,6 +48,11 @@ urlpatterns = [
         'comments/<int:post_id>/delete/<int:comment_id>/',
         DeleteComment.as_view(),
         name='delete-comment',
+    ),
+    path(
+        'comments/<int:post_id>/comment/<int:comment_id>/reply/',
+        ReplyToComment.as_view(),
+        name='reply-to-comment',
     ),
     #    path('post/edit/<id:pk>/', EditPost.view, name='edit-post'),
     #    path('post/delete/<id:pk>/', DeletePost.view, name='delete-post'),
