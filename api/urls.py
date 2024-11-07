@@ -12,6 +12,7 @@ from .views import (
     CommentVoteView,
     EditComment,
     DeleteComment,
+    DeletePost,
 )
 
 urlpatterns = [
@@ -21,7 +22,7 @@ urlpatterns = [
         name='user-activity',
     ),
     path('posts/<int:post_id>/vote/', PostVoteView.as_view(), name='vote-on-post'),
-    path('posts/delete/all/', DeleteAllPosts.as_view(), name='delete-posts'),
+    path('posts/delete/all/', DeleteAllPosts.as_view(), name='delete-all-posts'),
     path('post/create/', CreatePost.as_view(), name='create-post'),
     path('posts/', GetPosts.as_view(), name='get-posts'),
     path('posts/<int:pk>/', RefreshPost.as_view(), name='post-refresh'),
@@ -44,4 +45,5 @@ urlpatterns = [
         DeleteComment.as_view(),
         name='delete-comment',
     ),
+    path('post/<int:pk>/delete/', DeletePost.as_view(), name='delete-post'),
 ]

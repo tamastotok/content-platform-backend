@@ -318,3 +318,27 @@ class DeleteComment(generics.DestroyAPIView):
             {"message": "Comment deleted successfully."},
             status=status.HTTP_204_NO_CONTENT,
         )
+
+
+class DeletePost(generics.DestroyAPIView):
+    queryset = Post.objects.all()
+    serializer_class = PostSerializer
+
+    def get_object(self):
+        """
+        Override the get_object method to handle retrieving the post.
+        Ensures the post exists or raises a 404 error.
+        """
+        obj = super().get_object()  # Get the object using the provided id
+        if obj.author.id != self.request.user.id:
+            raise PermissionDenied('You are not authorized to delete this post.')
+        return obj
+
+    def perform_destroy(self, instance):
+        """
+        Override the perform_destroy method to delete the post.
+        """
+        instance.delete()
+        return Response(
+            status=status.HTTP_204_NO_CONTENT
+        )  # Return a 204 No Content status after deletion
