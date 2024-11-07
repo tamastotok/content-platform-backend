@@ -173,13 +173,9 @@ class PostVoteView(generics.GenericAPIView):
 
 
 class GetComments(generics.RetrieveAPIView):
-    # queryset = Post.objects.prefetch_related(
-    #    Prefetch('votes', queryset=Vote.objects.all(), to_attr='post_votes_set')
-    # ).all()
     queryset = Post.objects.prefetch_related(
         'votes',
         'comments__votes',
-        'comments__replies__votes',
     ).all()
     serializer_class = PostSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
@@ -195,10 +191,7 @@ class CreateComment(generics.CreateAPIView):
     serializer_class = CommentSerializer
 
     def perform_create(self, serializer):
-        # Use get_object_or_404 to handle non-existent post errors gracefully
         post = get_object_or_404(Post, id=self.kwargs['post_id'])
-
-        # Save the comment with the current user as the author and the specified post
         serializer.save(author=self.request.user, post=post)
 
 
@@ -218,35 +211,26 @@ class CommentVoteView(generics.GenericAPIView):
         # Get the post object
         post = get_object_or_404(Post, id=post_id)
 
-        # Try to get the comment (whether parent or reply)
+        # Try to get the comment
         comment = get_object_or_404(post.comments.all(), id=comment_id)
 
-        # Check if this comment is a reply (if it has a parent)
-        if comment.parent is not None:
-            # This is a reply to another comment
-            content_type = ContentType.objects.get_for_model(Comment)
-        else:
-            # This is a parent comment
-            content_type = ContentType.objects.get_for_model(Comment)
+        # The content type is always for the Comment model, no reply logic needed
+        content_type = ContentType.objects.get_for_model(Comment)
 
-        # Check if the user already voted on this comment or reply
+        # Check if the user already voted on this comment
         try:
             vote = Vote.objects.get(
                 user=request.user, content_type=content_type, object_id=comment_id
             )
             if vote_type is None:
-                # Delete the vote if vote_type is None (toggle off)
-                vote.delete()
+                vote.delete()  # Delete vote if vote_type is None (toggle off)
             else:
-                # Update the vote if the new value is different
                 if vote.value != vote_type:
                     vote.value = vote_type
                     vote.save()
                 else:
-                    # If the same vote is submitted again, toggle it off
-                    vote.delete()
+                    vote.delete()  # Toggle off if the same vote is submitted again
         except Vote.DoesNotExist:
-            # Create a new vote if one doesn’t exist and vote_type is not None
             if vote_type is not None:
                 Vote.objects.create(
                     user=request.user,
@@ -255,15 +239,12 @@ class CommentVoteView(generics.GenericAPIView):
                     value=vote_type,
                 )
 
-        # Recalculate total votes for the comment or reply (same logic applies for both)
-        comment_total_votes = comment.total_votes
-
         return Response(
             {
                 "message": "Vote toggled successfully.",
                 "upvotes": comment.upvotes,
                 "downvotes": comment.downvotes,
-                "total_votes": comment_total_votes,
+                "total_votes": comment.total_votes,
             },
             status=status.HTTP_200_OK,
         )
@@ -337,15 +318,3 @@ class DeleteComment(generics.DestroyAPIView):
             {"message": "Comment deleted successfully."},
             status=status.HTTP_204_NO_CONTENT,
         )
-
-
-class ReplyToComment(generics.CreateAPIView):
-    permission_classes = [IsAuthenticated]
-    serializer_class = CommentSerializer  # Assuming replies use the same serializer
-
-    def perform_create(self, serializer):
-        post = get_object_or_404(Post, id=self.kwargs['post_id'])
-        parent_comment = get_object_or_404(
-            Comment, id=self.kwargs['comment_id'], post=post
-        )
-        serializer.save(author=self.request.user, post=post, parent=parent_comment)

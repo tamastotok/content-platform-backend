@@ -49,17 +49,17 @@ class CommentSerializer(serializers.ModelSerializer):
     downvotes = serializers.IntegerField(read_only=True)
     total_votes = serializers.IntegerField(read_only=True)
     votes = VoteSerializer(many=True, read_only=True)
-    replies = serializers.SerializerMethodField()
     post_title = serializers.CharField(source='post.title', read_only=True)
+    post_id = serializers.IntegerField(source='post.id', read_only=True)
 
     class Meta:
         model = Comment
         fields = [
             'id',
-            'post',
+            'post_id',
             'post_title',
-            'author_username',
             'author_id',
+            'author_username',
             'content',
             'created_at',
             'updated_at',
@@ -67,11 +67,9 @@ class CommentSerializer(serializers.ModelSerializer):
             'downvotes',
             'total_votes',
             'votes',
-            'replies',
-            'parent',
         ]
         read_only_fields = [
-            'post',
+            'post_id',
             'created_at',
             'updated_at',
             'upvotes',
@@ -79,16 +77,12 @@ class CommentSerializer(serializers.ModelSerializer):
             'total_votes',
         ]
 
-    def get_replies(self, obj):
-        if obj.replies.exists():
-            return CommentSerializer(obj.replies.all(), many=True).data
-        return []
-
 
 class PostSerializer(serializers.ModelSerializer):
     upvotes = serializers.IntegerField(read_only=True)
     downvotes = serializers.IntegerField(read_only=True)
     total_votes = serializers.IntegerField(read_only=True)
+    author_id = serializers.IntegerField(source='author.id', read_only=True)
     author_username = serializers.CharField(source='author.username', read_only=True)
     comments_count = serializers.IntegerField(source='comments.count', read_only=True)
     votes = VoteSerializer(many=True, read_only=True)
@@ -98,7 +92,7 @@ class PostSerializer(serializers.ModelSerializer):
         model = Post
         fields = [
             'id',
-            'author',
+            'author_id',
             'author_username',
             'title',
             'content',
@@ -121,46 +115,6 @@ class PostSerializer(serializers.ModelSerializer):
             'total_votes',
             'comments_count',
         ]
-
-
-'''
-class PostVoteSerializer(serializers.ModelSerializer):
-    vote_type = serializers.ChoiceField(choices=Vote.VOTE_CHOICES)
-
-    class Meta:
-        model = Vote
-        fields = [
-            'vote_type',
-            'content_type',
-            'object_id',
-        ]  # Adjusted for GenericForeignKey
-
-    def validate(self, data):
-        # Ensure that vote_type is either 1 (upvote) or -1 (downvote)
-        if data['vote_type'] not in [1, -1]:
-            raise serializers.ValidationError("Invalid vote type. Must be 1 or -1.")
-        return data
-
-
-class CommentVoteSerializer(serializers.ModelSerializer):
-    vote_type = serializers.ChoiceField(choices=Vote.VOTE_CHOICES)
-
-    class Meta:
-        model = Vote
-        fields = ['vote_type', 'comment']
-
-    def validate(self, data):
-        if not data.get('comment'):
-            raise serializers.ValidationError(
-                "Comment ID is required for comment voting."
-            )
-        if data.get('post'):
-            raise serializers.ValidationError(
-                "Cannot vote on both post and comment at the same time."
-            )
-        return data
-
-'''
 
 
 ###
