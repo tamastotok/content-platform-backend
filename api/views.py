@@ -342,3 +342,28 @@ class DeletePost(generics.DestroyAPIView):
         return Response(
             status=status.HTTP_204_NO_CONTENT
         )  # Return a 204 No Content status after deletion
+
+
+class EditPost(generics.UpdateAPIView):
+    queryset = Post.objects.all()
+    serializer_class = PostSerializer
+    lookup_field = 'id'
+    lookup_url_kwarg = 'post_id'  # Use 'post_id' in the URL instead of 'id'
+
+    def update(self, request, *args, **kwargs):
+        post = self.get_object()
+
+        # Check if the user is the author of the post
+        if request.user != post.author:
+            return Response(
+                {"error": "You do not have permission to edit this post."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Proceed with the regular update logic
+        serializer = self.get_serializer(post, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
