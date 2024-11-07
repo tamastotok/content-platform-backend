@@ -12,14 +12,16 @@ from django.db.models import Prefetch
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.views import APIView
 from django.middleware.csrf import get_token
-from django.http import JsonResponse
+from django.http import Http404, JsonResponse
 from .serializers import (
     UserSerializer,
     PostSerializer,
     CommentSerializer,
     CustomTokenSerializer,
+    UserProfileSerializer,
 )
-from .models import Post, Comment, Vote
+from .models import Post, Comment, Vote, UserProfile
+from rest_framework.exceptions import NotFound
 
 
 def csrf_token_view(request):
@@ -36,8 +38,49 @@ class CreateUserView(generics.CreateAPIView):
     serializer_class = UserSerializer
     permission_classes = [AllowAny]
 
+    def perform_create(self, serializer):
+        # First, create the user using the serializer
+        user = serializer.save()
 
-### Custom code ###
+        # Now create the UserProfile for the new user
+        UserProfile.objects.create(user=user)
+
+
+class EditUserView(generics.UpdateAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [IsAuthenticated]
+    lookup_field = 'pk'
+
+    def get_object(self):
+        # Ensure the user is only updating their own profile
+        return self.request.user
+
+    def perform_update(self, serializer):
+        # Update the user details
+        user = serializer.save()
+
+        # Check if a UserProfile exists, if not, create it
+        user_profile, created = UserProfile.objects.get_or_create(user=user)
+
+        # Optionally, update the UserProfile's bio and profile_picture
+        user_profile.bio = self.request.data.get('bio', user_profile.bio)
+        user_profile.profile_picture = self.request.data.get(
+            'profile_picture', user_profile.profile_picture
+        )
+        user_profile.save()
+
+        return user  # Return the updated user object
+
+
+class DeleteUserView(generics.DestroyAPIView):
+    queryset = User.objects.all()
+    permission_classes = [IsAuthenticated]
+    lookup_field = 'pk'
+
+    def perform_destroy(self, instance):
+        # Optional: You can add extra actions before deleting the user (e.g., logging or sending a notification)
+        instance.delete()
 
 
 ### Clear database:
@@ -179,11 +222,6 @@ class GetComments(generics.RetrieveAPIView):
     ).all()
     serializer_class = PostSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
-
-    def get(self, request, *args, **kwargs):
-        post = self.get_object()
-        serializer = self.get_serializer(post)
-        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class CreateComment(generics.CreateAPIView):
@@ -367,3 +405,15 @@ class EditPost(generics.UpdateAPIView):
             return Response(serializer.data, status=status.HTTP_200_OK)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class GetProfile(generics.RetrieveAPIView):
+    queryset = UserProfile.objects.all()
+    serializer_class = UserProfileSerializer
+    lookup_field = 'pk'
+
+    def get_object(self):
+        try:
+            return super().get_object()
+        except Http404:
+            raise NotFound("This user does not have a profile.")

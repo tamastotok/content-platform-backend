@@ -14,6 +14,7 @@ from .views import (
     DeleteComment,
     DeletePost,
     EditPost,
+    GetProfile,
 )
 
 urlpatterns = [
@@ -48,4 +49,5 @@ urlpatterns = [
         name='delete-comment',
     ),
     path('post/<int:pk>/delete/', DeletePost.as_view(), name='delete-post'),
+    path('profile/<int:pk>', GetProfile.as_view(), name='get-profile'),
 ]

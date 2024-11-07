@@ -6,11 +6,11 @@ from django.contrib.contenttypes.fields import GenericForeignKey, GenericRelatio
 
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    bio = models.TextField(blank=True)
-    profile_picture = models.ImageField(upload_to='profile_pictures/', blank=True)
+    bio = models.TextField(blank=True, null=True)
+    profile_picture = models.ImageField(upload_to='profiles/', blank=True, null=True)
 
     def __str__(self):
-        return self.user.username
+        return f"{self.user.username}'s profile"
 
 
 class Post(models.Model):

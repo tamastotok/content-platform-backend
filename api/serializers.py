@@ -23,14 +23,30 @@ class CustomTokenSerializer(TokenObtainPairSerializer):
 
 
 class UserSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, required=False)
+
     class Meta:
         model = User
-        fields = ["id", "username", "password"]
-        extra_kwargs = {"password": {"write_only": True}}
+        fields = ['id', 'username', 'email', 'password']
+        extra_kwargs = {'password': {'write_only': True}}
 
     def create(self, validated_data):
-        user = User.objects.create_user(**validated_data)
-        return user
+        # Create user with hashed password
+        return User.objects.create_user(**validated_data)
+
+    def update(self, instance, validated_data):
+        password = validated_data.pop('password', None)
+
+        # Update other fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        # Update password if provided
+        if password:
+            instance.set_password(password)
+
+        instance.save()
+        return instance
 
 
 ### Custom code
@@ -117,9 +133,10 @@ class PostSerializer(serializers.ModelSerializer):
         ]
 
 
-###
-class FollowSerializer(serializers.ModelSerializer):
+class UserProfileSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source='user.username', read_only=True)
+    email = serializers.EmailField(source='user.email', read_only=True)
+
     class Meta:
-        model = Follow
-        fields = ['id', 'follower', 'following']
-        read_only_fields = ['id']  # Make 'id' read-only
+        model = UserProfile
+        fields = ['username', 'email', 'bio', 'profile_picture']
