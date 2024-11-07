@@ -50,12 +50,14 @@ class CommentSerializer(serializers.ModelSerializer):
     total_votes = serializers.IntegerField(read_only=True)
     votes = VoteSerializer(many=True, read_only=True)
     replies = serializers.SerializerMethodField()
+    post_title = serializers.CharField(source='post.title', read_only=True)
 
     class Meta:
         model = Comment
         fields = [
             'id',
             'post',
+            'post_title',
             'author_username',
             'author_id',
             'content',

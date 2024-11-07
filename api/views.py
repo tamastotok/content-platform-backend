@@ -63,7 +63,11 @@ class UserActivityView(APIView):
             return Response({"error": "User not found"}, status=404)
 
         posts = Post.objects.filter(author=user).order_by('-created_at')
-        comments = Comment.objects.filter(author=user).order_by('-created_at')
+        comments = (
+            Comment.objects.filter(author=user)
+            .select_related('post')
+            .order_by('-created_at')
+        )  # Optimize with select_related
 
         post_serializer = PostSerializer(posts, many=True)
         comment_serializer = CommentSerializer(comments, many=True)
